@@ -1,30 +1,47 @@
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from codescanner import scan_codebase
+from code_chunker import chunk_code
 from prompt_builder import build_prompt
 from ai_reviewer import review_code
 from report_writer import write_report
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
+def review_file(file):
+
+    reviews = []
+
+    chunks = chunk_code(file["code"])
+
+    for chunk in chunks:
+
+        prompt = build_prompt(
+            file["path"],
+            chunk["start_line"],
+            chunk["code"]
+        )
+
+        result = review_code(prompt)
+
+        reviews.extend(result)
+
+    return reviews
+
 
 def run_review(path):
 
-    print("Scanning codebase...")
-
     files = scan_codebase(path)
 
-    results = []
+    all_reviews = []
 
-    for file in files:
+    with ThreadPoolExecutor(max_workers=4) as executor:
 
-        print(f"Reviewing {file['path']}")
+        results = executor.map(review_file, files)
 
-        prompt = build_prompt(file["path"], file["code"])
+        for r in results:
+            all_reviews.extend(r)
 
-        review = review_code(prompt)
-
-        results.append(review)
-
-    write_report(results)
+    write_report(all_reviews)
 
 
 if __name__ == "__main__":

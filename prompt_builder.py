@@ -1,26 +1,31 @@
-def build_prompt(file_path, code):
+def build_prompt(file_path, start_line, code):
 
     prompt = f"""
-You are a senior engineer reviewing code.
+You are a senior staff engineer reviewing code.
 
-Review the following file and identify:
+Analyze the following code and return ONLY valid JSON.
 
-1. Bugs
-2. Security issues
-3. Performance problems
-4. Code quality improvements
-5. Best practice violations
+JSON format:
 
-Return results in this format:
+[
+  {{
+    "file": "{file_path}",
+    "line": "<line number>",
+    "issue": "<problem>",
+    "suggestion": "<fix>",
+    "severity": "low | medium | high"
+  }}
+]
 
-FILE:
-LINE:
-ISSUE:
-SUGGESTION:
-SEVERITY:
+Rules:
+- Identify bugs
+- Identify security problems
+- Identify performance issues
+- Identify code quality issues
 
-Code to review:
+Code starts at line {start_line}.
 
+CODE:
 {code}
 """
 
