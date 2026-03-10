@@ -14,12 +14,12 @@ def build_prompt(file_path, start_line, code, dependency_info=None):
         - layer violations
         """
     
-    structure = extract_structure(code)
+    structure = extract_structure(file_path, code)
 
     ast_context = f"""
-Classes: {structure['classes']}
-Methods: {structure['methods']}
-"""
+    Classes: {structure['classes']}
+    Methods: {structure['methods']}
+    """
 
     prompt = f"""
 You are a senior staff engineer performing a code review.
