@@ -1,57 +1,97 @@
 import sys
-from concurrent.futures import ThreadPoolExecutor
-from codescanner import scan_codebase
+from datetime import datetime
+from codescanner import scan_codebase,load_files
 from code_chunker import chunk_code
 from prompt_builder import build_prompt
 from ai_reviewer import review_code
 from report_writer import write_report
+from dependency_analyzer import build_dependency_graph, detect_cycles
 
 
-def review_file(file):
+def main():
 
-    reviews = []
+    if len(sys.argv) < 3:
+        print("Usage: python reviewer.py review <repo_path>")
+        return
 
-    chunks = chunk_code(file["code"])
+    command = sys.argv[1]
+    repo_path = sys.argv[2]
 
-    for chunk in chunks:
+    if command != "review":
+        print("Unknown command")
+        return
 
-        prompt = build_prompt(
-            file["path"],
-            chunk["start_line"],
-            chunk["code"]
-        )
+    print("Scanning repository...")
 
-        result = review_code(prompt)
+    files = scan_codebase(repo_path)
 
-        reviews.extend(result)
+    if not files:
+        print("No source files found.")
+        return
 
-    return reviews
+    print(f"Found {len(files)} source files")
 
+    # Load full file contents
+    file_map = load_files(files)
 
-def run_review(path):
+    print("Building dependency graph...")
 
-    files = scan_codebase(path)
+    graph = build_dependency_graph(file_map)
 
-    all_reviews = []
+    cycles = detect_cycles(graph)
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    if cycles:
+        print("⚠ Circular dependencies detected:")
+        for c in cycles:
+            print(" -> ".join(c))
+    else:
+        print("No circular dependencies found")
 
-        results = executor.map(review_file, files)
+    issues = []
 
-        for r in results:
-            all_reviews.extend(r)
+    print("Starting AI code review...")
 
-    write_report(all_reviews)
+    for file_path in files:
+
+        if isinstance(file_path, dict):
+            file_path = file_path["path"]
+        else:
+            file_path = file_path
+
+        code = file_map[file_path]
+
+        chunks = chunk_code(code)
+
+        # Dependency info for this file
+        deps = list(graph.edges(file_path))
+
+        for chunk in chunks:
+
+            start_line = chunk["start_line"]
+            code_chunk = chunk["code"]
+
+            prompt = build_prompt(
+                file_path,
+                start_line,
+                code_chunk,
+                deps
+            )
+
+            ai_result = review_code(prompt)
+
+            if ai_result:
+                issues.extend(ai_result)
+
+    report = {
+        "generated": str(datetime.now()),
+        "issues": issues
+    }
+
+    write_report(report)
+
+    print("Review completed")
+    print("Report generated: review-report.md")
 
 
 if __name__ == "__main__":
-
-    if len(sys.argv) < 3:
-        print("Usage: python reviewer.py review <path>")
-        sys.exit(1)
-
-    command = sys.argv[1]
-    path = sys.argv[2]
-
-    if command == "review":
-        run_review(path)
+    main()
