@@ -1,19 +1,24 @@
 from vector_store import search_similar_code
-
+from ast_parser import extract_structure
 
 def build_prompt(file_path, start_line, code):
 
-    related_files = search_similar_code(code)
+    structure = extract_structure(code)
 
-    context = "\n\n".join(related_files)
+    ast_context = f"""
+Classes: {structure['classes']}
+Methods: {structure['methods']}
+"""
 
     prompt = f"""
 You are a senior staff engineer performing a code review.
 
-Use the repository context below to understand architecture.
+Understand the structure of the code before reviewing.
 
-REPOSITORY CONTEXT:
-{context}
+FILE: {file_path}
+
+AST STRUCTURE:
+{ast_context}
 
 Review the following code and return JSON.
 
@@ -29,10 +34,13 @@ FORMAT:
   }}
 ]
 
-Code starts at line {start_line}.
+CODE STARTS AT LINE {start_line}
 
 CODE:
 {code}
+
+IMPORTANT:
+Return only JSON.
 """
 
     return prompt
