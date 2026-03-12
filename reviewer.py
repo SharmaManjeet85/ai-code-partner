@@ -1,11 +1,13 @@
 import sys
 from datetime import datetime
-from codescanner import scan_codebase,load_files
+
+from codescanner import  scan_codebase, load_files
 from code_chunker import chunk_code
 from prompt_builder import build_prompt
 from ai_reviewer import review_code
 from report_writer import write_report
 from dependency_analyzer import build_dependency_graph, detect_cycles
+from vector_store import search_similar
 
 
 def main():
@@ -26,12 +28,11 @@ def main():
     files = scan_codebase(repo_path)
 
     if not files:
-        print("No source files found.")
+        print("No source files found")
         return
 
     print(f"Found {len(files)} source files")
 
-    # Load full file contents
     file_map = load_files(files)
 
     print("Building dependency graph...")
@@ -41,28 +42,24 @@ def main():
     cycles = detect_cycles(graph)
 
     if cycles:
-        print("⚠ Circular dependencies detected:")
+        print("Circular dependencies detected:")
         for c in cycles:
             print(" -> ".join(c))
     else:
-        print("No circular dependencies found")
+        print("No circular dependencies detected")
 
     issues = []
 
     print("Starting AI code review...")
 
-    for file_path in files:
+    for file in files:
 
-        if isinstance(file_path, dict):
-            file_path = file_path["path"]
-        else:
-            file_path = file_path
+        file_path = file["path"] if isinstance(file, dict) else file
 
         code = file_map[file_path]
 
         chunks = chunk_code(code)
 
-        # Dependency info for this file
         deps = list(graph.edges(file_path))
 
         for chunk in chunks:
@@ -70,11 +67,15 @@ def main():
             start_line = chunk["start_line"]
             code_chunk = chunk["code"]
 
+            # semantic retrieval
+            related_code = search_similar(code_chunk)
+
             prompt = build_prompt(
                 file_path,
                 start_line,
                 code_chunk,
-                deps
+                deps,
+                related_code
             )
 
             ai_result = review_code(prompt)
