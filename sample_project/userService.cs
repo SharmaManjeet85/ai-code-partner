@@ -4,5 +4,6 @@ public class UserService
     {
         Database db = null;
         db.Save(user);
+        db.save(order);
     }
 }
